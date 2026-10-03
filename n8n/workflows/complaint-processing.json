@@ -1,0 +1,388 @@
+{
+  "name": "Complaint Processing Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "complaint-processed",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "8556702f-9253-4744-91b3-488f05054777",
+      "name": "Webhook",
+      "webhookId": "67105319-441c-414e-a5ec-b5773318f90e"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://host.docker.internal:8000/complaints/{{ $json.complaint_id }}/actions",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "action",
+              "value": "={{ $json.action }}"
+            },
+            {
+              "name": "action_status",
+              "value": "={{ $json.action_status }}"
+            },
+            {
+              "name": "reason",
+              "value": "={{ $json.reason }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        896,
+        -192
+      ],
+      "id": "bd3fb997-6715-4725-985f-83b68033f8c8",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "99d9d4e5-5905-4f39-bfe5-0c884d556193",
+              "leftValue": "={{ $json.body.subcategory }}",
+              "rightValue": "charge_after_cancellation",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {
+          "ignoreCase": false
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        672,
+        0
+      ],
+      "id": "832db1b9-689f-4f57-bc05-1a5e606562ef",
+      "name": "Is Charge After Cancellation?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "6abe238a-4a87-4483-a15a-b053ec1c41f0",
+              "leftValue": "={{ $json.body.subcategory }}",
+              "rightValue": "duplicate_charge",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        448,
+        -96
+      ],
+      "id": "d133ab28-4bdc-4e6f-b682-58c319eb9051",
+      "name": "Is Duplicate Charge?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "da1750d4-0d7c-4115-8211-b7b9e3f08d7b",
+              "name": "complaint_id",
+              "value": "={{ $json.body.complaint_id }}",
+              "type": "string"
+            },
+            {
+              "id": "453f64f9-b210-4edd-93fd-ea4e408118cc",
+              "name": "action",
+              "value": "investigate_post_cancellation_charge",
+              "type": "string"
+            },
+            {
+              "id": "b8e92be7-1ae8-464c-a06c-75e97cc86b81",
+              "name": "action_status",
+              "value": "initiated",
+              "type": "string"
+            },
+            {
+              "id": "a76dab4f-2fc4-4e04-a69e-750cc93c9a5a",
+              "name": "reason",
+              "value": "Post-cancellation charge requires deterministic billing investigation",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        944,
+        -48
+      ],
+      "id": "036b7ce5-4414-4096-8347-81c6e23ea9ed",
+      "name": "Create Cancellation Billing Action"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8685e3cb-c82b-45ba-b5f3-6f1ed43ec907",
+              "name": "complaint_id",
+              "value": "={{ $json.body.complaint_id }}",
+              "type": "string"
+            },
+            {
+              "id": "30a5e3cb-2ad3-4502-a6ce-297469ed925e",
+              "name": "action",
+              "value": "initiate_duplicate_charge_refund",
+              "type": "string"
+            },
+            {
+              "id": "cbce9450-c5e7-4e5b-bd9c-cf2a5d26594e",
+              "name": "action_status",
+              "value": "approved",
+              "type": "string"
+            },
+            {
+              "id": "1df82231-1359-4f14-bf8a-ccc161e19026",
+              "name": "reason",
+              "value": "Duplicate charge matched deterministic refund policy",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        672,
+        -192
+      ],
+      "id": "526ccfe8-c311-45be-bfd0-598f0595ebb0",
+      "name": "Create Billing Action"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://host.docker.internal:8000/complaints/{{ $json.complaint_id }}/actions",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "action",
+              "value": "={{ $json.action }}"
+            },
+            {
+              "name": "action_status",
+              "value": "={{ $json.action_status }}"
+            },
+            {
+              "name": "reason",
+              "value": "={{ $json.reason }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1168,
+        -48
+      ],
+      "id": "9f2063d3-abae-48b3-9ef0-72b90fc1699b",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "058cbe8c-ee60-42fc-8f80-1b982798f3dc",
+                    "leftValue": "={{ $json.body.category }}",
+                    "rightValue": "billing",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Billing"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e14488a4-b618-4a2a-bc78-80080391bd62",
+                    "leftValue": "={{ $json.body.subcategory }}",
+                    "rightValue": "duplicate_charge",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        0
+      ],
+      "id": "4f482593-4d2c-43f8-8645-560395e9472c",
+      "name": "Switch: Billing"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Switch: Billing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Duplicate Charge?": {
+      "main": [
+        [
+          {
+            "node": "Create Billing Action",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is Charge After Cancellation?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Charge After Cancellation?": {
+      "main": [
+        [
+          {
+            "node": "Create Cancellation Billing Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Billing Action": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Cancellation Billing Action": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch: Billing": {
+      "main": [
+        [
+          {
+            "node": "Is Duplicate Charge?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "4e6b4f1a-9215-4cff-a23c-c7ba0244d17e",
+  "meta": {
+    "instanceId": "4022aba384a5691f0aa3af21a37c6568be7222a4a5a282e430bfe7b87c2e23a6"
+  },
+  "nodeGroups": [],
+  "id": "Gp70wlRQ5clOg6Gl",
+  "tags": []
+}
