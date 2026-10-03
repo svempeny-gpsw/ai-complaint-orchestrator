@@ -1,0 +1,165 @@
+# Complaint Triage Engineering Skill
+
+## Purpose
+
+Use this skill when implementing or modifying complaint classification,
+routing, or automated complaint actions.
+
+Before changing code, read:
+
+- `specs/complaint-processing.md`
+- the existing routing implementation
+- the classification schema
+- the relevant automated tests
+
+The complaint-processing specification is the source of truth for system
+invariants.
+
+## Engineering Principle
+
+Preserve this processing boundary:
+
+```text
+deterministic interpretation where possible
+              ↓
+LLM interpretation only when necessary
+              ↓
+validated structured output
+              ↓
+deterministic business policy
+              ↓
+permitted automated action
+```
+
+Never allow an LLM classification to directly authorize or execute a
+business action.
+
+## Workflow for Making Changes
+
+### 1. Understand the requested behaviour
+
+Identify whether the change affects:
+
+- complaint input
+- deterministic routing
+- LLM classification
+- business-action policy
+- workflow orchestration
+- persistence
+- failure handling
+
+Do not start implementation until the expected behaviour and affected
+invariants are clear.
+
+### 2. Prefer deterministic behaviour
+
+If the requirement can be represented by a precise, unambiguous rule,
+prefer deterministic code.
+
+Do not call the LLM merely because an LLM is available.
+
+Use the LLM when semantic interpretation of unstructured customer
+language is genuinely required.
+
+### 3. Keep classification separate from authorization
+
+Classification answers questions such as:
+
+```text
+What kind of complaint is this?
+What is the subcategory?
+What priority does it have?
+What outcome is the customer seeking?
+```
+
+Business policy answers:
+
+```text
+What action, if any, is the system permitted to execute?
+```
+
+These concerns must remain separate.
+
+### 4. Treat LLM output as untrusted input
+
+LLM output must:
+
+- use the defined structured classification contract
+- pass application validation
+- contain only supported enum values
+- fail closed if parsing or validation fails
+
+Do not pass arbitrary model-generated action names, API arguments, SQL,
+URLs, credentials, or executable instructions to downstream systems.
+
+### 5. Preserve idempotency
+
+Workflow systems may retry requests.
+
+Any business action must therefore tolerate repeated delivery.
+
+Do not rely on n8n or another orchestrator to provide exactly-once
+execution.
+
+Enforce idempotency at the application or persistence boundary.
+
+### 6. Add tests before considering the change complete
+
+At minimum, test the behaviour directly affected by the change.
+
+For routing changes, test:
+
+```text
+input → expected route
+```
+
+For LLM-path changes, mock the external model boundary.
+
+For business-action changes, verify repeated requests cannot create
+duplicate effects.
+
+For failure-path changes, verify downstream business actions are not
+triggered after an upstream failure.
+
+### 7. Run the full test suite
+
+Run:
+
+```bash
+python -m pytest tests/ -v
+```
+
+Do not consider the change complete while existing tests fail.
+
+## Security Rules
+
+Never:
+
+- commit AWS credentials
+- put credentials in prompts
+- expose AWS credentials to the browser
+- send credentials through n8n complaint payloads
+- trust an LLM-generated business action without deterministic validation
+- log sensitive complaint text unnecessarily
+- bypass application validation because model output appears correct
+
+Browser clients call the application API.
+
+The application owns AWS Bedrock access.
+
+Deployment environments should use appropriate AWS identity mechanisms
+rather than credentials embedded in application source code.
+
+## Definition of Done
+
+A complaint-processing change is complete when:
+
+1. The behaviour is consistent with `specs/complaint-processing.md`.
+2. Deterministic logic is used where appropriate.
+3. LLM output is validated before downstream use.
+4. Business actions remain deterministically controlled.
+5. Idempotency is preserved where actions can be retried.
+6. Failure behaviour is explicit.
+7. Relevant automated tests exist.
+8. The full test suite passes.
+9. No secrets or credentials have been introduced into source control.
