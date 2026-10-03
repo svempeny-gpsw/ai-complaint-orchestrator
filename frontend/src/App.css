@@ -1,0 +1,109 @@
+#root {
+  width: 100%;
+}
+
+.page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  background: #f5f7fa;
+}
+
+.card {
+  width: min(620px, 100%);
+  background: white;
+  border-radius: 16px;
+  padding: 2.5rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+}
+
+.heading {
+  margin-bottom: 2rem;
+}
+
+.heading h1 {
+  margin: 0.25rem 0 0.5rem;
+}
+
+.heading p {
+  color: #59636e;
+}
+
+.eyebrow {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+label {
+  margin-top: 0.5rem;
+  font-weight: 600;
+}
+
+input,
+textarea {
+  font: inherit;
+  padding: 0.85rem;
+  border: 1px solid #ccd3da;
+  border-radius: 8px;
+}
+
+textarea {
+  resize: vertical;
+}
+
+button {
+  margin-top: 1rem;
+  padding: 0.9rem 1.25rem;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.message {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.success {
+  background: #edf8f0;
+}
+
+.error {
+  background: #fff0f0;
+}
+
+dl {
+  margin-bottom: 0;
+}
+
+dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+dt {
+  color: #59636e;
+}
+
+dd {
+  margin: 0;
+  font-weight: 700;
+}
