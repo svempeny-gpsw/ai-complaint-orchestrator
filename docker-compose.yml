@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: complaint-postgres
+    environment:
+      POSTGRES_DB: complaints
+      POSTGRES_USER: complaint_user
+      POSTGRES_PASSWORD: complaint_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - complaint_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U complaint_user -d complaints"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: complaint-n8n
+    ports:
+      - "5678:5678"
+    environment:
+      - GENERIC_TIMEZONE=Australia/Melbourne
+      - TZ=Australia/Melbourne
+      - N8N_SECURE_COOKIE=false
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  complaint_postgres_data:
+  n8n_data:
