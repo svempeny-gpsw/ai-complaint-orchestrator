@@ -1,0 +1,143 @@
+import pytest
+from unittest.mock import Mock, patch
+
+from app.models.classification import (
+    ComplaintCategory,
+    ComplaintClassification,
+    ComplaintPriority,
+    ComplaintSubcategory,
+)
+from app.models.complaint_db import ComplaintDB
+from app.services.processing_service import process_complaint
+
+
+@patch("app.services.processing_service.trigger_complaint_workflow")
+@patch("app.services.processing_service.classify_complaint")
+def test_deterministic_complaint_does_not_call_llm(
+    mock_classify,
+    mock_trigger_workflow,
+):
+    db = Mock()
+
+    complaint = ComplaintDB(
+        complaint_id="CMP-TEST001",
+        customer_id="CUST-TEST001",
+        channel="online",
+        complaint_text="I have a duplicate charge on my account.",
+        status="received",
+    )
+
+    process_complaint(db, complaint)
+
+    mock_classify.assert_not_called()
+
+    assert complaint.processing_route == "deterministic"
+    assert complaint.category == "billing"
+    assert complaint.subcategory == "duplicate_charge"
+    assert complaint.priority == "high"
+    assert complaint.status == "resolved"
+
+    mock_trigger_workflow.assert_called_once_with(
+        complaint_id="CMP-TEST001",
+        category="billing",
+        subcategory="duplicate_charge",
+        priority="high",
+        processing_route="deterministic",
+    )
+
+
+@patch("app.services.processing_service.trigger_complaint_workflow")
+@patch("app.services.processing_service.classify_complaint")
+def test_ambiguous_complaint_calls_llm(
+    mock_classify,
+    mock_trigger_workflow,
+):
+    db = Mock()
+
+    mock_classify.return_value = ComplaintClassification(
+        category=ComplaintCategory.BILLING,
+        subcategory=ComplaintSubcategory.CHARGE_AFTER_CANCELLATION,
+        priority=ComplaintPriority.HIGH,
+        customer_intent="Resolve unexpected charge after cancellation",
+        summary="Customer was charged after cancelling their subscription.",
+    )
+
+    complaint = ComplaintDB(
+        complaint_id="CMP-TEST002",
+        customer_id="CUST-TEST002",
+        channel="online",
+        complaint_text=(
+            "I cancelled last week but you have taken money "
+            "from me again today."
+        ),
+        status="received",
+    )
+
+    process_complaint(db, complaint)
+
+    mock_classify.assert_called_once_with(
+        complaint.complaint_text
+    )
+
+    assert complaint.processing_route == "llm"
+    assert complaint.category == "billing"
+    assert complaint.subcategory == "charge_after_cancellation"
+    assert complaint.priority == "high"
+    assert complaint.status == "resolved"
+
+    assert (
+        complaint.customer_intent
+        == "Resolve unexpected charge after cancellation"
+    )
+
+    assert (
+        complaint.summary
+        == "Customer was charged after cancelling their subscription."
+    )
+
+    mock_trigger_workflow.assert_called_once_with(
+        complaint_id="CMP-TEST002",
+        category="billing",
+        subcategory="charge_after_cancellation",
+        priority="high",
+        processing_route="llm",
+    )
+
+@patch("app.services.processing_service.trigger_complaint_workflow")
+@patch("app.services.processing_service.classify_complaint")
+def test_llm_failure_marks_complaint_failed_and_does_not_trigger_workflow(
+    mock_classify,
+    mock_trigger_workflow,
+):
+    db = Mock()
+
+    mock_classify.side_effect = RuntimeError(
+        "Bedrock classification failed"
+    )
+
+    complaint = ComplaintDB(
+        complaint_id="CMP-TEST003",
+        customer_id="CUST-TEST003",
+        channel="online",
+        complaint_text=(
+            "I cancelled last week but you have taken money "
+            "from me again today."
+        ),
+        status="received",
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="Bedrock classification failed",
+    ):
+        process_complaint(db, complaint)
+
+    assert complaint.status == "failed"
+
+    mock_classify.assert_called_once_with(
+        complaint.complaint_text
+    )
+
+    mock_trigger_workflow.assert_not_called()
+
+    assert db.commit.call_count >= 2
