@@ -1,3 +1,5 @@
+import pytest
+
 from app.models.enums import (
     ComplaintCategory,
     ComplaintSubcategory,
@@ -24,3 +26,21 @@ def test_ambiguous_complaint_uses_llm():
     )
 
     assert result.route == ProcessingRoute.LLM
+
+
+@pytest.mark.parametrize(
+    "complaint_text",
+    [
+        "I do not have a duplicate charge, but my invoice is confusing.",
+        "There's no duplicate charge — I just want a receipt.",
+        (
+            "A friend mentioned a duplicate charge; "
+            "I don't think it applies to me."
+        ),
+    ],
+)
+def test_negated_or_disclaimed_duplicate_charge_uses_llm(complaint_text):
+    result = route_complaint(complaint_text)
+
+    assert result.route == ProcessingRoute.LLM
+    assert result.subcategory is None

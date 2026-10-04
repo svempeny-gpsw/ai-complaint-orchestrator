@@ -8,6 +8,21 @@ from app.models.enums import (
 )
 
 
+DUPLICATE_CHARGE_NEGATIONS = (
+    "no duplicate charge",
+    "not a duplicate charge",
+    "not have a duplicate charge",
+    "without a duplicate charge",
+)
+
+DUPLICATE_CHARGE_DISCLAIMERS = (
+    "does not apply to me",
+    "doesn't apply to me",
+    "do not think it applies to me",
+    "don't think it applies to me",
+)
+
+
 @dataclass
 class RoutingDecision:
     route: ProcessingRoute
@@ -19,10 +34,18 @@ class RoutingDecision:
 
 
 def route_complaint(text: str) -> RoutingDecision:
-    normalized = text.lower()
+    normalized = " ".join(text.lower().split())
 
     # Highly explicit billing case
-    if "duplicate charge" in normalized:
+    has_duplicate_charge = "duplicate charge" in normalized
+    has_negation = any(
+        phrase in normalized for phrase in DUPLICATE_CHARGE_NEGATIONS
+    )
+    has_disclaimer = any(
+        phrase in normalized for phrase in DUPLICATE_CHARGE_DISCLAIMERS
+    )
+
+    if has_duplicate_charge and not (has_negation or has_disclaimer):
         return RoutingDecision(
             route=ProcessingRoute.DETERMINISTIC,
             category=ComplaintCategory.BILLING,

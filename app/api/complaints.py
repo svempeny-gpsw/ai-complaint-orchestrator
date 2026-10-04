@@ -87,7 +87,7 @@ def read_complaint(
 )
 def add_complaint_action(
     complaint_id: str,
-    _request: ComplaintActionRequest,
+    _request: ComplaintActionRequest | None = None,
     db: Session = Depends(get_db),
 ) -> ComplaintActionResponse:
 
@@ -103,7 +103,7 @@ def add_complaint_action(
         ) from exc
     except ComplaintActionNotPermittedError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(exc),
         ) from exc
 

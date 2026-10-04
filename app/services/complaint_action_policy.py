@@ -21,8 +21,11 @@ ACTION_POLICIES = {
         ComplaintSubcategory.DUPLICATE_CHARGE.value,
     ): PermittedComplaintAction(
         action="initiate_duplicate_charge_refund",
-        action_status="approved",
-        reason="Duplicate charge matched deterministic refund policy",
+        action_status="initiated",
+        reason=(
+            "Duplicate charge classification initiated refund "
+            "eligibility review"
+        ),
     ),
     (
         ComplaintCategory.BILLING.value,
