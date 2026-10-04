@@ -23,20 +23,7 @@
         "url": "=http://host.docker.internal:8000/complaints/{{ $json.complaint_id }}/actions",
         "sendBody": true,
         "bodyParameters": {
-          "parameters": [
-            {
-              "name": "action",
-              "value": "={{ $json.action }}"
-            },
-            {
-              "name": "action_status",
-              "value": "={{ $json.action_status }}"
-            },
-            {
-              "name": "reason",
-              "value": "={{ $json.reason }}"
-            }
-          ]
+          "parameters": []
         },
         "options": {}
       },
@@ -47,7 +34,7 @@
         -192
       ],
       "id": "bd3fb997-6715-4725-985f-83b68033f8c8",
-      "name": "HTTP Request"
+      "name": "Create Permitted Duplicate Charge Action"
     },
     {
       "parameters": {
@@ -127,24 +114,6 @@
               "name": "complaint_id",
               "value": "={{ $json.body.complaint_id }}",
               "type": "string"
-            },
-            {
-              "id": "453f64f9-b210-4edd-93fd-ea4e408118cc",
-              "name": "action",
-              "value": "investigate_post_cancellation_charge",
-              "type": "string"
-            },
-            {
-              "id": "b8e92be7-1ae8-464c-a06c-75e97cc86b81",
-              "name": "action_status",
-              "value": "initiated",
-              "type": "string"
-            },
-            {
-              "id": "a76dab4f-2fc4-4e04-a69e-750cc93c9a5a",
-              "name": "reason",
-              "value": "Post-cancellation charge requires deterministic billing investigation",
-              "type": "string"
             }
           ]
         },
@@ -157,7 +126,7 @@
         -48
       ],
       "id": "036b7ce5-4414-4096-8347-81c6e23ea9ed",
-      "name": "Create Cancellation Billing Action"
+      "name": "Prepare Post-Cancellation Action Request"
     },
     {
       "parameters": {
@@ -167,24 +136,6 @@
               "id": "8685e3cb-c82b-45ba-b5f3-6f1ed43ec907",
               "name": "complaint_id",
               "value": "={{ $json.body.complaint_id }}",
-              "type": "string"
-            },
-            {
-              "id": "30a5e3cb-2ad3-4502-a6ce-297469ed925e",
-              "name": "action",
-              "value": "initiate_duplicate_charge_refund",
-              "type": "string"
-            },
-            {
-              "id": "cbce9450-c5e7-4e5b-bd9c-cf2a5d26594e",
-              "name": "action_status",
-              "value": "approved",
-              "type": "string"
-            },
-            {
-              "id": "1df82231-1359-4f14-bf8a-ccc161e19026",
-              "name": "reason",
-              "value": "Duplicate charge matched deterministic refund policy",
               "type": "string"
             }
           ]
@@ -198,7 +149,7 @@
         -192
       ],
       "id": "526ccfe8-c311-45be-bfd0-598f0595ebb0",
-      "name": "Create Billing Action"
+      "name": "Prepare Duplicate Charge Action Request"
     },
     {
       "parameters": {
@@ -206,20 +157,7 @@
         "url": "=http://host.docker.internal:8000/complaints/{{ $json.complaint_id }}/actions",
         "sendBody": true,
         "bodyParameters": {
-          "parameters": [
-            {
-              "name": "action",
-              "value": "={{ $json.action }}"
-            },
-            {
-              "name": "action_status",
-              "value": "={{ $json.action_status }}"
-            },
-            {
-              "name": "reason",
-              "value": "={{ $json.reason }}"
-            }
-          ]
+          "parameters": []
         },
         "options": {}
       },
@@ -230,7 +168,7 @@
         -48
       ],
       "id": "9f2063d3-abae-48b3-9ef0-72b90fc1699b",
-      "name": "HTTP Request1"
+      "name": "Create Permitted Post-Cancellation Action"
     },
     {
       "parameters": {
@@ -314,7 +252,7 @@
       "main": [
         [
           {
-            "node": "Create Billing Action",
+            "node": "Prepare Duplicate Charge Action Request",
             "type": "main",
             "index": 0
           }
@@ -332,29 +270,29 @@
       "main": [
         [
           {
-            "node": "Create Cancellation Billing Action",
+            "node": "Prepare Post-Cancellation Action Request",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Create Billing Action": {
+    "Prepare Duplicate Charge Action Request": {
       "main": [
         [
           {
-            "node": "HTTP Request",
+            "node": "Create Permitted Duplicate Charge Action",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Create Cancellation Billing Action": {
+    "Prepare Post-Cancellation Action Request": {
       "main": [
         [
           {
-            "node": "HTTP Request1",
+            "node": "Create Permitted Post-Cancellation Action",
             "type": "main",
             "index": 0
           }
