@@ -1,10 +1,8 @@
-from app.models.complaint import (
+from app.models.enums import (
     ComplaintCategory,
+    ComplaintSubcategory,
     ProcessingRoute,
 )
-
-from app.models.classification import ComplaintSubcategory
-from app.models.complaint import ComplaintCategory, ProcessingRoute
 from app.services.routing_service import route_complaint
 
 
@@ -16,6 +14,8 @@ def test_duplicate_charge_is_deterministic():
     assert result.route == ProcessingRoute.DETERMINISTIC
     assert result.category == ComplaintCategory.BILLING
     assert result.subcategory == ComplaintSubcategory.DUPLICATE_CHARGE
+    assert result.summary == "Customer reports a duplicate charge."
+    assert result.reason == "Explicit duplicate-charge phrase detected"
 
 
 def test_ambiguous_complaint_uses_llm():

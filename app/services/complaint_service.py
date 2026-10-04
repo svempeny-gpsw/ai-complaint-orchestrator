@@ -22,6 +22,7 @@ def create_complaint(
         channel=complaint.channel.value,
         complaint_text=complaint.complaint_text,
         status="received",
+        workflow_dispatch_status="not_requested",
     )
 
     db.add(db_complaint)

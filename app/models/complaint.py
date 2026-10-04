@@ -1,38 +1,16 @@
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
-class ComplaintCategory(str, Enum):
-    BILLING = "billing"
-    DELIVERY = "delivery"
-    ACCOUNT = "account"
-    PRODUCT = "product"
-    SERVICE = "service"
-    OTHER = "other"
-
-
-class ComplaintPriority(str, Enum):
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-
-
-class ProcessingRoute(str, Enum):
-    DETERMINISTIC = "deterministic"
-    LLM = "llm"
-
-
-class ComplaintChannel(str, Enum):
-    ONLINE = "online"
-    PHONE = "phone"
-
-
-class ComplaintStatus(str, Enum):
-    RECEIVED = "received"
-    PROCESSING = "processing"
-    RESOLVED = "resolved"
-    NEEDS_INFORMATION = "needs_information"
-    FAILED = "failed"
+from app.models.enums import (
+    ComplaintCategory,
+    ComplaintChannel,
+    ComplaintPriority,
+    ComplaintStatus,
+    ComplaintSubcategory,
+    ProcessingRoute,
+    WorkflowDispatchStatus,
+)
 
 
 class ComplaintCreate(BaseModel):
@@ -47,11 +25,12 @@ class ComplaintResponse(BaseModel):
     channel: ComplaintChannel
     complaint_text: str
     status: ComplaintStatus
+    workflow_dispatch_status: WorkflowDispatchStatus
 
-    processing_route: str | None = None
-    category: str | None = None
-    subcategory: str | None = None
-    priority: str | None = None
+    processing_route: ProcessingRoute | None = None
+    category: ComplaintCategory | None = None
+    subcategory: ComplaintSubcategory | None = None
+    priority: ComplaintPriority | None = None
     customer_intent: str | None = None
     summary: str | None = None
     model_used: str | None = None

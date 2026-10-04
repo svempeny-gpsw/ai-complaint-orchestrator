@@ -1,9 +1,9 @@
 from dataclasses import dataclass
-from app.models.classification import ComplaintSubcategory
 
-from app.models.complaint import (
+from app.models.enums import (
     ComplaintCategory,
     ComplaintPriority,
+    ComplaintSubcategory,
     ProcessingRoute,
 )
 
@@ -14,6 +14,7 @@ class RoutingDecision:
     category: ComplaintCategory | None = None
     subcategory: ComplaintSubcategory | None = None
     priority: ComplaintPriority | None = None
+    summary: str | None = None
     reason: str | None = None
 
 
@@ -27,6 +28,7 @@ def route_complaint(text: str) -> RoutingDecision:
             category=ComplaintCategory.BILLING,
             subcategory=ComplaintSubcategory.DUPLICATE_CHARGE,
             priority=ComplaintPriority.HIGH,
+            summary="Customer reports a duplicate charge.",
             reason="Explicit duplicate-charge phrase detected",
         )
 
@@ -37,6 +39,7 @@ def route_complaint(text: str) -> RoutingDecision:
             category=ComplaintCategory.DELIVERY,
             subcategory=ComplaintSubcategory.MISSING_DELIVERY,
             priority=ComplaintPriority.MEDIUM,
+            summary="Customer reports that an order was not delivered.",
             reason="Explicit delivery failure phrase detected",
         )
 

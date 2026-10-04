@@ -36,6 +36,12 @@ class ComplaintDB(Base):
         default="received",
     )
 
+    workflow_dispatch_status: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+        default="not_requested",
+    )
+
     # Processing result
     processing_route: Mapped[str | None] = mapped_column(
         String(30),

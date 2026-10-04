@@ -1,9 +1,9 @@
 import pytest
 from unittest.mock import Mock, patch
 
-from app.models.classification import (
+from app.models.classification import ComplaintClassification
+from app.models.enums import (
     ComplaintCategory,
-    ComplaintClassification,
     ComplaintPriority,
     ComplaintSubcategory,
 )
@@ -35,7 +35,9 @@ def test_deterministic_complaint_does_not_call_llm(
     assert complaint.category == "billing"
     assert complaint.subcategory == "duplicate_charge"
     assert complaint.priority == "high"
-    assert complaint.status == "resolved"
+    assert complaint.summary == "Customer reports a duplicate charge."
+    assert complaint.status == "processed"
+    assert complaint.workflow_dispatch_status == "dispatched"
 
     mock_trigger_workflow.assert_called_once_with(
         complaint_id="CMP-TEST001",
@@ -84,7 +86,8 @@ def test_ambiguous_complaint_calls_llm(
     assert complaint.category == "billing"
     assert complaint.subcategory == "charge_after_cancellation"
     assert complaint.priority == "high"
-    assert complaint.status == "resolved"
+    assert complaint.status == "processed"
+    assert complaint.workflow_dispatch_status == "dispatched"
 
     assert (
         complaint.customer_intent
@@ -134,6 +137,7 @@ def test_llm_failure_marks_complaint_failed_and_does_not_trigger_workflow(
         process_complaint(db, complaint)
 
     assert complaint.status == "failed"
+    assert complaint.workflow_dispatch_status == "not_requested"
 
     mock_classify.assert_called_once_with(
         complaint.complaint_text
@@ -177,8 +181,48 @@ def test_insufficient_information_does_not_trigger_workflow(
     mock_trigger_workflow.assert_not_called()
 
     assert result.status == "needs_information"
+    assert result.workflow_dispatch_status == "not_requested"
     assert result.processing_route == "llm"
     assert result.category == "other"
     assert result.subcategory == "other"
     assert result.priority == "low"
     assert result.customer_intent == "unclear"
+
+
+@patch("app.services.processing_service.trigger_complaint_workflow")
+@patch("app.services.processing_service.classify_complaint")
+def test_workflow_failure_preserves_successful_classification(
+    mock_classify,
+    mock_trigger_workflow,
+):
+    db = Mock()
+
+    mock_classify.return_value = ComplaintClassification(
+        sufficient_information=True,
+        category=ComplaintCategory.BILLING,
+        subcategory=ComplaintSubcategory.CHARGE_AFTER_CANCELLATION,
+        priority=ComplaintPriority.HIGH,
+        customer_intent="Investigate a post-cancellation charge",
+        summary="Customer was charged after cancelling their subscription.",
+    )
+    mock_trigger_workflow.side_effect = RuntimeError("n8n unavailable")
+
+    complaint = ComplaintDB(
+        complaint_id="CMP-DISPATCH-FAIL",
+        customer_id="CUST-DISPATCH-FAIL",
+        channel="online",
+        complaint_text="I cancelled, but you charged me again.",
+        status="received",
+    )
+
+    result = process_complaint(db, complaint)
+
+    assert result.status == "processed"
+    assert result.workflow_dispatch_status == "failed"
+    assert result.category == "billing"
+    assert result.subcategory == "charge_after_cancellation"
+    assert (
+        result.summary
+        == "Customer was charged after cancelling their subscription."
+    )
+    assert db.commit.call_count >= 3
