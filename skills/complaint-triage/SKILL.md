@@ -80,6 +80,11 @@ What action, if any, is the system permitted to execute?
 
 These concerns must remain separate.
 
+The application API owns this policy. A workflow may request action
+processing, but it must not supply an action name, approval status, or policy
+reason. Load the persisted complaint and derive the permitted action from its
+validated category/subcategory using an allow-listed deterministic mapping.
+
 ### 4. Treat LLM output as untrusted input
 
 LLM output must:
@@ -103,7 +108,21 @@ execution.
 
 Enforce idempotency at the application or persistence boundary.
 
-### 6. Add tests before considering the change complete
+Keep the database uniqueness constraint as the final safeguard. When two
+requests race on insert, catch the uniqueness `IntegrityError`, roll back the
+losing transaction, fetch the winning row, and return it.
+
+### 6. Keep failure and status meanings precise
+
+- `failed` means routing/classification failed.
+- `processed` means a validated classification was persisted; it does not mean
+  a refund, investigation, or other business action completed.
+- Track downstream workflow delivery separately from complaint processing.
+- A workflow-delivery failure must not erase or relabel a successful
+  classification.
+- Keep `summary` factual. Do not store router/debug reasons in that field.
+
+### 7. Add tests before considering the change complete
 
 At minimum, test the behaviour directly affected by the change.
 
@@ -118,10 +137,13 @@ For LLM-path changes, mock the external model boundary.
 For business-action changes, verify repeated requests cannot create
 duplicate effects.
 
+Also verify unsupported classifications and caller-supplied action fields
+cannot manufacture an authorized business action.
+
 For failure-path changes, verify downstream business actions are not
 triggered after an upstream failure.
 
-### 7. Run the full test suite
+### 8. Run the full test suite
 
 Run:
 
@@ -130,6 +152,9 @@ python -m pytest tests/ -v
 ```
 
 Do not consider the change complete while existing tests fail.
+
+Tests must configure their own isolated database and must not require a
+developer's private `.env` file.
 
 ## Security Rules
 
@@ -160,6 +185,7 @@ A complaint-processing change is complete when:
 4. Business actions remain deterministically controlled.
 5. Idempotency is preserved where actions can be retried.
 6. Failure behaviour is explicit.
-7. Relevant automated tests exist.
-8. The full test suite passes.
-9. No secrets or credentials have been introduced into source control.
+7. Complaint and workflow-delivery states are not conflated.
+8. Relevant automated tests exist.
+9. The full test suite passes from a clean test configuration.
+10. No secrets or credentials have been introduced into source control.

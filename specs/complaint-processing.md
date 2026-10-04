@@ -26,7 +26,8 @@ The system follows this principle:
 5. The LLM must not directly approve refunds or execute business actions.
 
 6. Automated actions must be selected by deterministic business rules
-   after classification.
+   in the application after loading the persisted classification. Workflow
+   or client input must not supply the authorized action or status.
 
 7. Workflow retries must not create duplicate business actions for the
    same complaint and action type.
@@ -34,11 +35,18 @@ The system follows this principle:
 8. If LLM classification fails, the complaint must be marked as failed
    and the downstream workflow must not be triggered.
 
-9. Online and phone complaints must converge on the same complaint
+9. A downstream workflow-delivery failure must not overwrite a successful
+   classification. Complaint processing state and workflow-dispatch state
+   must remain distinguishable.
+
+10. Online and phone complaints must converge on the same complaint
    processing pipeline.
 
-10. External integrations must not receive AWS credentials or other
+11. External integrations must not receive AWS credentials or other
     application secrets through complaint payloads.
+
+12. `summary` must contain a short factual description of the complaint.
+    Router diagnostics must not be stored in that customer-facing field.
 
 ## Current Input Contracts
 
@@ -50,6 +58,7 @@ The system follows this principle:
   "channel": "online",
   "complaint_text": "I have a duplicate charge on my account."
 }
+```
 
 ## LLM Classification Contract
 
@@ -107,8 +116,11 @@ Current automated policies include:
 | billing / duplicate_charge | initiate_duplicate_charge_refund | approved |
 | billing / charge_after_cancellation | investigate_post_cancellation_charge | initiated |
 
-Business actions are selected by deterministic workflow rules after
-classification.
+Business actions are selected by deterministic application policy after
+classification. `POST /complaints/{complaint_id}/actions` accepts an empty
+JSON command (`{}`). The API loads the persisted complaint and derives the
+permitted action, initial status, and reason. Client or n8n supplied action
+fields are rejected.
 
 Adding a new LLM classification must not automatically create a new
 business action.
@@ -128,7 +140,24 @@ For the current implementation, the persistence invariant is:
 A repeated request for an existing complaint/action pair must return the
 existing action rather than intentionally creating another action.
 
-The database uniqueness constraint is the final persistence safeguard.
+The database uniqueness constraint is the final persistence safeguard. If
+concurrent requests race on insert, the losing request must roll back, fetch
+the winning row, and return it as an idempotent replay.
+
+## Status Semantics
+
+Complaint status describes classification state:
+
+| Status | Meaning |
+| --- | --- |
+| `received` | Raw complaint has been accepted and persisted. |
+| `processing` | Routing/classification is in progress. |
+| `processed` | A validated classification is persisted. It does not imply that a business action completed. |
+| `needs_information` | Classification completed but the complaint is too vague for downstream action. |
+| `failed` | Routing/classification failed. |
+
+Workflow delivery is tracked separately as `not_requested`, `pending`,
+`dispatched`, or `failed`.
 
 ## Failure Behaviour
 
@@ -151,6 +180,17 @@ NO automated business action
 The original error is propagated so that the API/infrastructure layer
 can observe and handle the failure.
 
+If classification succeeds but workflow delivery fails:
+
+```text
+complaint status = processed
+workflow dispatch status = failed
+classification fields remain persisted
+```
+
+This demo records the distinction but does not implement reliable retry
+delivery. A transactional outbox is the production-grade solution.
+
 ## Testing Requirements
 
 Changes to complaint processing must preserve tests proving that:
@@ -161,6 +201,12 @@ Changes to complaint processing must preserve tests proving that:
 4. LLM failure marks processing as failed.
 5. LLM failure does not trigger downstream workflow execution.
 6. Repeated business-action requests do not create duplicate action rows.
+7. Supported actions and statuses are derived from persisted classification.
+8. Unsupported classifications cannot create business actions.
+9. Client-supplied action/status fields are rejected.
+10. Uniqueness races return the action created by the winning request.
+11. Workflow-delivery failure preserves a successful classification.
+12. Insufficient-information complaints do not trigger workflow delivery.
 
 External Bedrock and n8n calls should be mocked in unit tests.
 
