@@ -31,6 +31,7 @@ class ComplaintStatus(str, Enum):
     RECEIVED = "received"
     PROCESSING = "processing"
     RESOLVED = "resolved"
+    NEEDS_INFORMATION = "needs_information"
     FAILED = "failed"
 
 

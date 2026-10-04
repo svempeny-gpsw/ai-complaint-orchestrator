@@ -30,6 +30,13 @@ class ComplaintSubcategory(str, Enum):
 
 
 class ComplaintClassification(BaseModel):
+    sufficient_information: bool = Field(
+        description=(
+            "True only when the complaint contains enough information "
+            "to identify a meaningful customer issue"
+        )
+    )
+
     category: ComplaintCategory
     subcategory: ComplaintSubcategory
     priority: ComplaintPriority

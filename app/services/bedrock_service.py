@@ -12,6 +12,7 @@ You classify customer complaints.
 Return only valid JSON matching this structure:
 
 {
+  "sufficient_information": true,
   "category": "billing | delivery | account | product | service | other",
   "subcategory": "duplicate_charge | charge_after_cancellation | refund_not_received | delivery_delay | missing_delivery | account_access | product_issue | service_issue | other",
   "priority": "low | medium | high",
@@ -24,6 +25,14 @@ Rules:
 - Do not include explanations outside the JSON.
 - Do not invent facts not present in the complaint.
 - Do not approve refunds or other business actions.
+- Set sufficient_information to false when the input does not contain
+  enough information to identify a meaningful customer complaint.
+- When sufficient_information is false:
+  - category must be "other"
+  - subcategory must be "other"
+  - priority must be "low"
+  - customer_intent must be "unclear"
+  - summary must explain that there is insufficient information.
 """
 
 

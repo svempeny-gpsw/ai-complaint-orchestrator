@@ -55,6 +55,7 @@ def test_ambiguous_complaint_calls_llm(
     db = Mock()
 
     mock_classify.return_value = ComplaintClassification(
+        sufficient_information=True,
         category=ComplaintCategory.BILLING,
         subcategory=ComplaintSubcategory.CHARGE_AFTER_CANCELLATION,
         priority=ComplaintPriority.HIGH,
@@ -141,3 +142,43 @@ def test_llm_failure_marks_complaint_failed_and_does_not_trigger_workflow(
     mock_trigger_workflow.assert_not_called()
 
     assert db.commit.call_count >= 2
+
+@patch("app.services.processing_service.trigger_complaint_workflow")
+@patch("app.services.processing_service.classify_complaint")
+def test_insufficient_information_does_not_trigger_workflow(
+    mock_classify,
+    mock_trigger_workflow,
+):
+    db = Mock()
+
+    mock_classify.return_value = ComplaintClassification(
+        sufficient_information=False,
+        category=ComplaintCategory.OTHER,
+        subcategory=ComplaintSubcategory.OTHER,
+        priority=ComplaintPriority.LOW,
+        customer_intent="unclear",
+        summary="Insufficient information to identify a specific complaint.",
+    )
+
+    complaint = ComplaintDB(
+        complaint_id="CMP-TEST004",
+        customer_id="CUST-TEST004",
+        channel="online",
+        complaint_text="nothing happened",
+        status="received",
+    )
+
+    result = process_complaint(db, complaint)
+
+    mock_classify.assert_called_once_with(
+        complaint.complaint_text
+    )
+
+    mock_trigger_workflow.assert_not_called()
+
+    assert result.status == "needs_information"
+    assert result.processing_route == "llm"
+    assert result.category == "other"
+    assert result.subcategory == "other"
+    assert result.priority == "low"
+    assert result.customer_intent == "unclear"

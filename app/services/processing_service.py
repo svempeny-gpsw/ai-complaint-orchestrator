@@ -41,6 +41,21 @@ def process_complaint(
                 complaint.complaint_text
             )
 
+            if not classification.sufficient_information:
+                complaint.processing_route = "llm"
+                complaint.category = classification.category.value
+                complaint.subcategory = classification.subcategory.value
+                complaint.priority = classification.priority.value
+                complaint.customer_intent = classification.customer_intent
+                complaint.summary = classification.summary
+                complaint.model_used = settings.bedrock_model_id
+                complaint.status = "needs_information"
+
+                db.commit()
+                db.refresh(complaint)
+
+                return complaint
+
             complaint.processing_route = "llm"
             complaint.category = classification.category.value
             complaint.subcategory = classification.subcategory.value
