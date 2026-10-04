@@ -1,7 +1,12 @@
+import os
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
+
+# Tests must not depend on, or connect through, a developer's private .env.
+os.environ["DATABASE_URL"] = "sqlite://"
 
 from app.core.database import Base
 from app.models.complaint_action_db import ComplaintActionDB
