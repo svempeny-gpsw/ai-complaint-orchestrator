@@ -48,6 +48,10 @@ The system follows this principle:
 12. `summary` must contain a short factual description of the complaint.
     Router diagnostics must not be stored in that customer-facing field.
 
+13. A complaint-text classification alone must not approve a financial
+    action. Financial approval requires deterministic evidence outside the
+    complaint text, such as transaction verification and eligibility checks.
+
 ## Current Input Contracts
 
 ### Online complaint
@@ -92,7 +96,7 @@ The current implementation contains the following explicit rules:
 
 | Complaint signal | Category | Subcategory | Priority | Route |
 | --- | --- | --- | --- | --- |
-| `duplicate charge` | billing | duplicate_charge | high | deterministic |
+| explicit, non-negated `duplicate charge` | billing | duplicate_charge | high | deterministic |
 | `order not delivered` | delivery | missing_delivery | medium | deterministic |
 | Anything requiring semantic interpretation | determined by classifier | determined by classifier | determined by classifier | llm |
 
@@ -101,6 +105,10 @@ explicit enough that semantic interpretation is unnecessary.
 
 Do not add broad keyword rules that could incorrectly classify ambiguous
 customer language.
+
+Obvious negations or disclaimers around `duplicate charge` must not take the
+deterministic duplicate-charge path. They fall back to semantic classification
+rather than being handled by an expanding natural-language regex parser.
 
 ## Business Action Policy
 
@@ -113,7 +121,7 @@ Current automated policies include:
 
 | Classification | Permitted action | Initial status |
 | --- | --- | --- |
-| billing / duplicate_charge | initiate_duplicate_charge_refund | approved |
+| billing / duplicate_charge | initiate_duplicate_charge_refund | initiated |
 | billing / charge_after_cancellation | investigate_post_cancellation_charge | initiated |
 
 Business actions are selected by deterministic application policy after
@@ -124,6 +132,12 @@ fields are rejected.
 
 Adding a new LLM classification must not automatically create a new
 business action.
+
+For duplicate charges, `initiated` means the system started the permitted
+refund-review workflow. It does not mean a refund is financially approved.
+Approval would require deterministic evidence including customer ownership,
+duplicate transaction verification, refund eligibility, prior-refund state,
+and policy limits. Those checks are outside this demo.
 
 ## Idempotency
 
@@ -207,6 +221,12 @@ Changes to complaint processing must preserve tests proving that:
 10. Uniqueness races return the action created by the winning request.
 11. Workflow-delivery failure preserves a successful classification.
 12. Insufficient-information complaints do not trigger workflow delivery.
+13. Negated duplicate-charge language does not take the deterministic
+    duplicate-charge path.
+14. Duplicate-charge classification can initiate review but cannot produce an
+    approved refund from complaint text alone.
+15. The real API contract accepts `POST {}` and rejects policy fields.
+16. The n8n workflow contains no duplicate business-policy branches.
 
 External Bedrock and n8n calls should be mocked in unit tests.
 

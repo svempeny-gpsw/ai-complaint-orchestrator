@@ -28,7 +28,7 @@ flowchart TD
     CLAUDE[Claude via AWS Bedrock]
     VALIDATE[Pydantic Validation]
     N8N[n8n Workflow]
-    POLICY{Server-Side Deterministic Policy}
+    POLICY{FastAPI Deterministic Policy}
     ACTION[Business Action]
     ACTIONDB[(Action Audit / PostgreSQL)]
 
@@ -44,7 +44,7 @@ flowchart TD
     CLAUDE --> VALIDATE
     VALIDATE --> DB
 
-    DB --> N8N
+    API --> N8N
     N8N -->|Empty action request| POLICY
     POLICY --> ACTION
     ACTION --> ACTIONDB
@@ -96,6 +96,8 @@ permitted automated action
 ```
 
 This separation prevents the LLM from directly authorizing business actions.
+It also prevents a text classification from claiming that a financial refund
+has already been approved.
 
 ### Status Semantics
 
@@ -207,6 +209,13 @@ http://localhost:5678
 > Do not use `docker compose down -v` unless you intentionally want to
 > delete the local PostgreSQL and n8n volumes.
 
+> **Existing demo database:** versions created before
+> `workflow_dispatch_status` was added must be migrated or deliberately
+> recreated before running this version. `create_all()` does not alter an
+> existing table. Recreating Docker volumes is destructive and also removes
+> potentially useful n8n state, so back up anything needed and make that
+> choice manually; this project does not remove volumes automatically.
+
 ### Start the FastAPI Backend
 
 Create and activate a virtual environment if required:
@@ -276,16 +285,20 @@ python -m pytest tests/ -v
 The test suite covers:
 
 - deterministic routing
+- negated duplicate-charge routing safeguards
 - LLM routing without making real Bedrock requests
 - propagation of structured LLM classification
 - LLM failure behaviour
 - prevention of workflow execution after classification failure
 - insufficient-information safety behaviour
 - server-side business-action authorization
+- duplicate-charge review initiation without financial approval
 - rejection of client-supplied action/status fields
+- the real `POST {}` n8n/API trigger contract
 - sequential and uniqueness-race idempotency
 - preservation of classification after workflow-delivery failure
 - n8n export contract and connection integrity
+- absence of business-policy branching in n8n
 
 External Bedrock and n8n calls are mocked in unit tests so the suite does
 not depend on those services or incur model usage.
@@ -311,9 +324,9 @@ the application using:
 http://host.docker.internal:8000
 ```
 
-The workflow selects the supported billing branches and requests action
-processing through the FastAPI complaint-action endpoint. It sends an empty
-JSON body:
+The workflow contains no category/subcategory business-policy branches. It
+receives the event and makes one orchestration call to the FastAPI
+complaint-action endpoint with an empty JSON body:
 
 ```http
 POST /complaints/{complaint_id}/actions
@@ -330,10 +343,10 @@ The server-side policy includes:
 
 ```text
 billing / duplicate_charge
-    → initiate_duplicate_charge_refund
+    → initiate_duplicate_charge_refund / initiated
 
 billing / charge_after_cancellation
-    → investigate_post_cancellation_charge
+    → investigate_post_cancellation_charge / initiated
 ```
 
 The workflow responds to the initial webhook immediately. Business-action
@@ -418,8 +431,9 @@ and operator authorization remain deployment responsibilities.
 
 Claude classifies complaints but does not authorize business actions.
 
-The current duplicate-charge refund action demonstrates the policy boundary.
-A real financial action would additionally validate conditions such as:
+The duplicate-charge policy initiates a refund-review action; it does not mark
+the refund approved from complaint text. Financial approval would additionally
+require deterministic evidence such as:
 
 - customer ownership of the transaction
 - transaction state
@@ -428,7 +442,8 @@ A real financial action would additionally validate conditions such as:
 - previous refunds/actions
 - authorization to perform the operation
 
-The deterministic policy layer remains responsible for these checks.
+The deterministic policy layer remains responsible for these checks. They are
+intentionally not invented or simulated in this take-home.
 
 ### Idempotency and Concurrency
 
@@ -479,11 +494,11 @@ this version.
 
 ### LLM Reliability and Observability
 
-A production deployment should add bounded retries and timeouts for transient
-Bedrock failures, structured telemetry for correlation IDs, model latency,
-validation failures, workflow dispatch, and action execution, plus regression
-evaluation datasets. Sensitive complaint content should not be logged unless
-necessary.
+The demo reuses one Bedrock Runtime client and configures bounded connection
+and read timeouts with standard SDK retries. A production deployment should
+still add structured telemetry for correlation IDs, model latency, validation
+failures, workflow dispatch, and action execution, plus regression evaluation
+datasets. Sensitive complaint content should not be logged unless necessary.
 
 ### Phone and Deployment Boundaries
 

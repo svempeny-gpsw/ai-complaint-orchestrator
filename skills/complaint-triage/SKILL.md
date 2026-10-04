@@ -61,6 +61,12 @@ Do not call the LLM merely because an LLM is available.
 Use the LLM when semantic interpretation of unstructured customer
 language is genuinely required.
 
+A deterministic rule is not automatically safe merely because it is
+deterministic. Avoid weak keyword matches for negated or disclaimed language,
+especially when classification can start a financial workflow. Prefer a
+small explicit guard and fall back to semantic classification rather than
+building a complex regex-based language parser.
+
 ### 3. Keep classification separate from authorization
 
 Classification answers questions such as:
@@ -84,6 +90,10 @@ The application API owns this policy. A workflow may request action
 processing, but it must not supply an action name, approval status, or policy
 reason. Load the persisted complaint and derive the permitted action from its
 validated category/subcategory using an allow-listed deterministic mapping.
+
+Complaint text alone must never produce an `approved` financial action. It may
+initiate a permitted review workflow, while actual approval requires separate
+deterministic transaction and eligibility evidence.
 
 ### 4. Treat LLM output as untrusted input
 
