@@ -1,6 +1,8 @@
 import json
+from functools import lru_cache
 
 import boto3
+from botocore.config import Config
 
 from app.core.config import settings
 from app.models.classification import ComplaintClassification
@@ -36,13 +38,24 @@ Rules:
 """
 
 
+BEDROCK_CLIENT_CONFIG = Config(
+    retries={"total_max_attempts": 3, "mode": "standard"},
+    connect_timeout=5,
+    read_timeout=30,
+)
+
+
+@lru_cache(maxsize=1)
 def _create_bedrock_client():
     session = boto3.Session(
         profile_name=settings.aws_profile,
         region_name=settings.aws_region,
     )
 
-    return session.client("bedrock-runtime")
+    return session.client(
+        "bedrock-runtime",
+        config=BEDROCK_CLIENT_CONFIG,
+    )
 
 
 def classify_complaint(
