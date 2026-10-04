@@ -2,12 +2,26 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import "./App.css";
 
+type ComplaintStatus =
+  | "received"
+  | "processing"
+  | "processed"
+  | "needs_information"
+  | "failed";
+
+type WorkflowDispatchStatus =
+  | "not_requested"
+  | "pending"
+  | "dispatched"
+  | "failed";
+
 type ComplaintResponse = {
   complaint_id: string;
   customer_id: string;
   channel: string;
   complaint_text: string;
-  status: string;
+  status: ComplaintStatus;
+  workflow_dispatch_status: WorkflowDispatchStatus;
 
   processing_route: string | null;
   category: string | null;
@@ -67,24 +81,29 @@ function App() {
 
       let actionData: ComplaintActionResponse[] = [];
 
-      for (let attempt = 0; attempt < 5; attempt++) {
-        const actionsResponse = await fetch(
-          `http://127.0.0.1:8000/complaints/${data.complaint_id}/actions`
-        );
-
-        if (!actionsResponse.ok) {
-          throw new Error(
-            `Unable to load complaint actions: ${actionsResponse.status}`
+      if (
+        data.status === "processed" &&
+        data.workflow_dispatch_status === "dispatched"
+      ) {
+        for (let attempt = 0; attempt < 5; attempt++) {
+          const actionsResponse = await fetch(
+            `http://127.0.0.1:8000/complaints/${data.complaint_id}/actions`
           );
+
+          if (!actionsResponse.ok) {
+            throw new Error(
+              `Unable to load complaint actions: ${actionsResponse.status}`
+            );
+          }
+
+          actionData = await actionsResponse.json();
+
+          if (actionData.length > 0) {
+            break;
+          }
+
+          await new Promise((resolve) => setTimeout(resolve, 500));
         }
-
-        actionData = await actionsResponse.json();
-
-        if (actionData.length > 0) {
-          break;
-        }
-
-        await new Promise((resolve) => setTimeout(resolve, 500));
       }
 
       setActions(actionData);
@@ -145,14 +164,26 @@ function App() {
 
         {result && (
           <div className="result-card">
-            <h2>Complaint Processed</h2>
+            <h2>
+              {result.status === "needs_information"
+                ? "More Information Needed"
+                : result.status === "failed"
+                ? "Complaint Processing Failed"
+                : "Complaint Processed"}
+            </h2>
 
             <p>
               <strong>Complaint ID:</strong> {result.complaint_id}
             </p>
 
             <p>
-              <strong>Status:</strong> {result.status}
+              <strong>Status:</strong>{" "}
+              {result.status.replaceAll("_", " ")}
+            </p>
+
+            <p>
+              <strong>Workflow Dispatch:</strong>{" "}
+              {result.workflow_dispatch_status.replaceAll("_", " ")}
             </p>
 
             <p>
