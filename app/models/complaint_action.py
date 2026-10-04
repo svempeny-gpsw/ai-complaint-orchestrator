@@ -1,12 +1,10 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict
 
 
-class ComplaintActionCreate(BaseModel):
-    action: str = Field(min_length=1, max_length=100)
-    action_status: str = Field(min_length=1, max_length=30)
-    reason: str = Field(min_length=1)
+class ComplaintActionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
 
 class ComplaintActionResponse(BaseModel):

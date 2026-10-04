@@ -10,11 +10,13 @@ from app.services.complaint_service import (
 )
 
 from app.models.complaint_action import (
-    ComplaintActionCreate,
+    ComplaintActionRequest,
     ComplaintActionResponse,
 )
 
 from app.services.complaint_action_service import (
+    ComplaintActionNotPermittedError,
+    ComplaintNotFoundError,
     create_complaint_action,
     get_complaint_actions,
 )
@@ -81,11 +83,11 @@ def read_complaint(
 @router.post(
     "/{complaint_id}/actions",
     response_model=ComplaintActionResponse,
-    status_code=status.HTTP_201_CREATED,
+    status_code=status.HTTP_200_OK,
 )
 def add_complaint_action(
     complaint_id: str,
-    action: ComplaintActionCreate,
+    _request: ComplaintActionRequest,
     db: Session = Depends(get_db),
 ) -> ComplaintActionResponse:
 
@@ -93,11 +95,15 @@ def add_complaint_action(
         return create_complaint_action(
             db=db,
             complaint_id=complaint_id,
-            action=action,
         )
-    except ValueError as exc:
+    except ComplaintNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    except ComplaintActionNotPermittedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(exc),
         ) from exc
 
